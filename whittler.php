@@ -1,3 +1,4 @@
+<?php
 /**
  * Plugin Name: Whittler
  * Plugin URI: http://awcdev.com
