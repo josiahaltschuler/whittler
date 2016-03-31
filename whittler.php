@@ -23,67 +23,50 @@ class Whittler_widget extends WP_Widget {
 			echo $args['before_title'] . $title . $args['after_title'];
 		}
 
+		global $post;
 
+		$terms = $_GET["privateresourcecategory"];
 
-		if ($_GET["category"] != "") {
-			echo "<div id='you-searched-for'>";
-			echo "You searched for: ";
-			
-			if ($_GET["category"] != "") {
-				$categoryParameters = explode(" ", $_GET["category"]);
-				foreach ($categoryParameters as $categoryParameter) {
-					$term = get_term_by('slug', $categoryParameter, 'category');
-					$name = $term->name;
-					echo " <a class='topic-term' href='" . esc_url( home_url( '/' ) ) . "resources/evidence-based-practices/?category=" . $_GET["type"] . "'>" . $name . "</a>";
-				}
-			}
-			echo "<p>Number of results: " . $GLOBALS['wp_query']->found_posts . "</p>";
-			echo "<br /><p><a id='clear-search' href='" . esc_url( home_url( '/' ) ) . "'>Clear Search</a></p>";
-			echo "</div>";
-		} else {
-			echo "<p>Number of results: " . $GLOBALS['wp_query']->found_posts . "</p>";
+		//Put all the parameters from the URL into an array
+		if ($terms != "") {
+			$parameters = explode(" ", $terms);
 		}
 
+		$sidebarTerms = array(); //This will collect all the topic terms to place in the sidebar dropdown
 
-
-		// Get all the terms that are used in this list of posts and put them in an array.
-		// Need to do this so that we don't list category terms used by other post types.
-		$dropdownTopics = array(); //This will collect all the topic terms to place in the sidebar dropdown
-
-		query_posts( 'posts_per_page=-1' );
 		while ( have_posts() ) : the_post();
-			$id = get_the_id();
-			$topicTerms = wp_get_object_terms($id, 'category');
-			if ( ! empty( $topicTerms ) && ! is_wp_error( $topicTerms ) ) {
-				foreach ( $topicTerms as $term ) {
-					if (!in_array($term, $dropdownTopics)) {
-						array_push($dropdownTopics, $term);
+			//Get all the category terms for this post
+			$thisPostTerms = wp_get_object_terms($post->ID, 'privateresourcecategory');
+			if ( ! empty( $thisPostTerms ) && ! is_wp_error( $thisPostTerms ) ) {
+
+				foreach ( $thisPostTerms as $term ) {
+
+					if (!in_array($term, $sidebarTerms)) {
+						//Add the term to an array to list all of them in the sidebar later
+						array_push($sidebarTerms, $term);
+
+						//Add the term to a string to be printed as a list to the sidebar later
+						$separatedTerms = '';
+						$alreadySelected = FALSE;
+
+						if ($terms != '') {
+							if (in_array($term->slug, $parameters)) {
+								$alreadySelected = TRUE;
+							}
+							$separatedTerms = implode("+", $parameters);
+							$separatedTerms .= "+";
+						}
+						if ($alreadySelected == TRUE) {
+							echo '<p class="selected-term">' . $term->name . '</p>';
+						} else {
+							echo '<a class="term" href="' . home_url( '/' ) . 'provider-portal/privateresources/?privateresourcecategory=' . $separatedTerms . $term->slug . '">' . $term->name . '</a>';
+						}
 					}
 				}
 			}
 		endwhile;
-		wp_reset_postdata();
 
-		if ( ! empty( $dropdownTopics ) && ! is_wp_error( $dropdownTopics ) ) {
-			foreach ( $dropdownTopics as $term ) {
-				$categorySeparatedTerms = '';
-				$alreadySelected = FALSE;
-
-				if ($_GET["category"] != '') {
-					if (in_array($term->slug, $categoryParameters)) {
-						$alreadySelected = TRUE;
-					}
-					$categorySeparatedTerms = implode("+", $categoryParameters);
-					$categorySeparatedTerms .= "+";
-				}
-
-				if ($alreadySelected == TRUE) {
-					echo '<p>&#x2713; ' . $term->name . '</p>';
-				} else {
-					echo '<a href="' . home_url( '/?category=' ) . $categorySeparatedTerms . $term->slug . '">' . $term->name . '</a><br />';
-				}
-			}
-		}
+		rewind_posts();
 
 		echo $args['after_widget'];
 	}
@@ -116,3 +99,12 @@ function wpb_load_widget() {
 	register_widget( 'whittler_widget' );
 }
 add_action( 'widgets_init', 'wpb_load_widget' );
+
+function no_pagination( $query ) {
+   if ( is_post_type_archive( 'privateresources' ) ) {
+        // Display 50 posts for a custom post type called 'movie'
+        $query->set( 'posts_per_page', -1 );
+        return;
+    }
+}
+add_action( 'pre_get_posts', 'no_pagination' );
